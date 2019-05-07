@@ -8,12 +8,12 @@ import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFunction
+import org.jetbrains.kotlin.psi.KtModifierList
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
 import org.jetbrains.kotlin.resolve.BindingContext
-import org.jetbrains.kotlin.resolve.bindingContextUtil.isUsedAsExpression
 
 class PurityValidateVisitor(
     private val bindingContext: BindingContext,
@@ -23,8 +23,11 @@ class PurityValidateVisitor(
     private val functionProperties = mutableMapOf<CallableDescriptor, MutableList<String>>()
 
     override fun visitKtElement(element: KtElement) {
-        var skipChildren = false
+        var visitChildren = true
         when (element) {
+            is KtModifierList -> {
+                visitChildren = false
+            }
             is KtFunction -> {
                 element.functionDescriptor(bindingContext) {
                     if (declaredPure()) {
@@ -32,7 +35,7 @@ class PurityValidateVisitor(
                             functionProperties.putIfAbsent(this, mutableListOf())
                         }
                     } else {
-                        skipChildren = true
+                        visitChildren = false
                     }
                 }
             }
@@ -43,6 +46,7 @@ class PurityValidateVisitor(
                         // error(element, "Mutable parameter '$name' passed to a pure context.")
                     }
                 }
+                visitChildren = false
             }
             is KtCallExpression -> {
                 element.functionDescriptor(bindingContext) {
@@ -50,6 +54,7 @@ class PurityValidateVisitor(
                         error(element, "Impure function '$name' called from a pure context.")
                     }
                 }
+                visitChildren = false
             }
             is KtProperty -> {
                 element.enclosingFunctionDescriptor(bindingContext) {
@@ -57,11 +62,11 @@ class PurityValidateVisitor(
                         functionProperties[this]?.push(element.name!!)
                     }
                 }
+                visitChildren = false
             }
             is KtNameReferenceExpression -> {
                 element.enclosingFunctionDescriptor(bindingContext) {
                     val hasSideEffect = declaredPure() &&
-                            element.isUsedAsExpression(bindingContext) &&
                             element.getReferencedName() !in functionProperties[this].orEmpty()
 
                     if (hasSideEffect) {
@@ -70,7 +75,7 @@ class PurityValidateVisitor(
                 }
             }
         }
-        if (!skipChildren) {
+        if (visitChildren) {
             element.acceptChildren(this)
         }
     }

@@ -8,6 +8,7 @@ var x = 0
 @Pure
 fun increment() {
     var y = 0
+    x
     x++
     y++
 }
