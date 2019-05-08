@@ -14,7 +14,6 @@ repositories {
 }
 
 dependencies {
-    api(project(":annotations"))
     compileOnly(gradleApi())
     compileOnly(deps.Kotlin.StdLib)
     compileOnly(deps.Kotlin.Gradle.Plugin.Api)

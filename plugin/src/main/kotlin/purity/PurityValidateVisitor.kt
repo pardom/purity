@@ -4,73 +4,75 @@ import org.jetbrains.kotlin.backend.common.push
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.messages.MessageUtil
-import org.jetbrains.kotlin.descriptors.CallableDescriptor
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.com.intellij.psi.PsiElementVisitor
 import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFunction
 import org.jetbrains.kotlin.psi.KtModifierList
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtParameter
-import org.jetbrains.kotlin.psi.KtProperty
-import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
 import org.jetbrains.kotlin.resolve.BindingContext
 
 class PurityValidateVisitor(
     private val bindingContext: BindingContext,
     private val messageCollector: MessageCollector
-) : KtTreeVisitorVoid() {
+) : PsiElementVisitor() {
 
-    private val functionProperties = mutableMapOf<CallableDescriptor, MutableList<String>>()
+    private val classProperties = mutableMapOf<KtElement, MutableList<String>>()
+    private val functionProperties = mutableMapOf<KtElement, MutableList<String>>()
 
-    override fun visitKtElement(element: KtElement) {
+    override fun visitElement(element: PsiElement) {
         var visitChildren = true
         when (element) {
             is KtModifierList -> {
                 visitChildren = false
             }
             is KtFunction -> {
-                element.functionDescriptor(bindingContext) {
-                    if (declaredPure()) {
-                        element.functionDescriptor(bindingContext) {
-                            functionProperties.putIfAbsent(this, mutableListOf())
-                        }
-                    } else {
-                        visitChildren = false
-                    }
+                if (element.declaredPure(bindingContext)) {
+                    functionProperties.putIfAbsent(element, mutableListOf())
+                } else {
+                    visitChildren = false
                 }
             }
             is KtParameter -> {
-                element.ownerFunction?.functionDescriptor(bindingContext) {
-                    if (declaredPure()) {
+                element.withAncestor<KtClassOrObject> {
+                    if (declaredImmutable(bindingContext)) {
+                        error(element, "Immutable class property")
+                    }
+                    visitChildren = false
+                }
+                element.withAncestor<KtFunction> {
+                    if (declaredPure(bindingContext)) {
                         // val type = bindingContext.get(BindingContext.TYPE, element.typeReference)
                         // error(element, "Mutable parameter '$name' passed to a pure context.")
                     }
+                    visitChildren = false
                 }
-                visitChildren = false
             }
             is KtCallExpression -> {
-                element.functionDescriptor(bindingContext) {
-                    if (!declaredPure()) {
-                        error(element, "Impure function '$name' called from a pure context.")
-                    }
+                if (!element.declaredPure(bindingContext)) {
+                    error(element, "Impure function called from a pure function.")
+                    visitChildren = false
                 }
-                visitChildren = false
             }
-            is KtProperty -> {
-                element.enclosingFunctionDescriptor(bindingContext) {
-                    if (declaredPure()) {
+            is KtNamedDeclaration -> {
+                element.withAncestor<KtFunction> {
+                    if (declaredPure(bindingContext)) {
                         functionProperties[this]?.push(element.name!!)
                     }
+                    visitChildren = false
                 }
-                visitChildren = false
             }
             is KtNameReferenceExpression -> {
-                element.enclosingFunctionDescriptor(bindingContext) {
-                    val hasSideEffect = declaredPure() &&
+                element.withAncestor<KtFunction> {
+                    val hasSideEffect = declaredPure(bindingContext) &&
                             element.getReferencedName() !in functionProperties[this].orEmpty()
 
                     if (hasSideEffect) {
-                        error(element, "Non-local property called from a pure context.")
+                        error(element, "Non-local property referenced from a pure function.")
                     }
                 }
             }
@@ -81,10 +83,18 @@ class PurityValidateVisitor(
     }
 
     private fun error(element: KtElement, msg: String) {
+        messageCollector.report(CompilerMessageSeverity.ERROR, msg, MessageUtil.psiElementToMessageLocation(element))
+    }
+
+    fun report() {
+
         messageCollector.report(
             CompilerMessageSeverity.ERROR,
-            msg,
-            MessageUtil.psiElementToMessageLocation(element)
+            """
+
+                classProperties: $classProperties,
+                functionProperties: $functionProperties
+            """.trimIndent()
         )
     }
 

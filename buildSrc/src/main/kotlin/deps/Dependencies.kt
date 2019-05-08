@@ -9,7 +9,7 @@ object Dokka : Group("org.jetbrains.dokka", "0.9.18") {
     }
 }
 
-object Kotlin : Group("org.jetbrains.kotlin", "1.3.30") {
+object Kotlin : Group("org.jetbrains.kotlin", "1.3.31") {
     private const val BASE = "kotlin"
 
     object Compiler : Group(this) {

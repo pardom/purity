@@ -1,26 +1,21 @@
 package purity
 
-@Immutable
-data class Foo(val int: Int)
-
 var x = 0
 
 @Pure
-fun increment() {
+fun namedFunction() {
     var y = 0
-    x
     x++
     y++
+    bar()
 }
 
-@Pure
-fun foo(a: Foo) = bar()
-
-@Pure
-fun bar() {
-    baz()
+val functionLiteral = @Pure { a: Int ->
+    var y = 0
+    x++
+    y++
+    bar()
 }
 
-fun baz() {
-    foo(Foo(1))
-}
+fun bar() = baz()
+fun baz() = Unit
