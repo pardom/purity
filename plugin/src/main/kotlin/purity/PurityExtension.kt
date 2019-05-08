@@ -1,6 +1,7 @@
 package purity
 
 import org.jetbrains.kotlin.analyzer.AnalysisResult
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
@@ -19,7 +20,14 @@ class PurityExtension(
         files: Collection<KtFile>
     ): AnalysisResult? {
         val visitor = PurityValidateVisitor(bindingTrace.bindingContext, messageCollector)
-        files.forEach { file -> file.acceptChildren(visitor) }
+        files.forEach { file ->
+            file.acceptChildren(visitor)
+            messageCollector.report(
+                CompilerMessageSeverity.ERROR,
+                file.toTreeString()
+            )
+        }
+        visitor.report()
         return null
     }
 

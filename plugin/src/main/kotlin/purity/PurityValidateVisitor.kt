@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.psi.KtModifierList
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtParameter
+import org.jetbrains.kotlin.psi.KtTypeReference
 import org.jetbrains.kotlin.resolve.BindingContext
 
 class PurityValidateVisitor(
@@ -68,6 +69,7 @@ class PurityValidateVisitor(
             is KtNameReferenceExpression -> {
                 element.withAncestor<KtFunction> {
                     val hasSideEffect = declaredPure(bindingContext) &&
+                            element.findAncestor<KtTypeReference>() == null &&
                             element.getReferencedName() !in functionProperties[this].orEmpty()
 
                     if (hasSideEffect) {
@@ -85,4 +87,12 @@ class PurityValidateVisitor(
         messageCollector.report(CompilerMessageSeverity.ERROR, msg, MessageUtil.psiElementToMessageLocation(element))
     }
 
+    fun report() {
+        messageCollector.report(
+            CompilerMessageSeverity.ERROR,
+            """
+                functionProperties: $functionProperties
+            """.trimIndent()
+        )
+    }
 }
