@@ -46,8 +46,7 @@ class PurityValidateVisitor(
                 }
                 element.withAncestor<KtFunction> {
                     if (declaredPure(bindingContext)) {
-                        // val type = bindingContext.get(BindingContext.TYPE, element.typeReference)
-                        // error(element, "Mutable parameter '$name' passed to a pure context.")
+                        functionProperties[this]?.push(element.name!!)
                     }
                     visitChildren = false
                 }
@@ -84,18 +83,6 @@ class PurityValidateVisitor(
 
     private fun error(element: KtElement, msg: String) {
         messageCollector.report(CompilerMessageSeverity.ERROR, msg, MessageUtil.psiElementToMessageLocation(element))
-    }
-
-    fun report() {
-
-        messageCollector.report(
-            CompilerMessageSeverity.ERROR,
-            """
-
-                classProperties: $classProperties,
-                functionProperties: $functionProperties
-            """.trimIndent()
-        )
     }
 
 }

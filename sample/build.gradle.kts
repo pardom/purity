@@ -20,4 +20,5 @@ repositories {
 
 dependencies {
     implementation(project(":annotations"))
+    implementation(deps.Kotlin.StdLib)
 }

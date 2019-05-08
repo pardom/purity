@@ -18,7 +18,6 @@ class PurityExtension(
         bindingTrace: BindingTrace,
         files: Collection<KtFile>
     ): AnalysisResult? {
-        @Suppress("UNUSED_VARIABLE")
         val visitor = PurityValidateVisitor(bindingTrace.bindingContext, messageCollector)
         files.forEach { file -> file.acceptChildren(visitor) }
         return null

@@ -1,21 +1,6 @@
 package purity
 
-var x = 0
-
 @Pure
-fun namedFunction() {
-    var y = 0
-    x++
-    y++
-    bar()
+fun factorial(n: Long): Long {
+    return (2L..n).fold(1L, Long::times)
 }
-
-val functionLiteral = @Pure { a: Int ->
-    var y = 0
-    x++
-    y++
-    bar()
-}
-
-fun bar() = baz()
-fun baz() = Unit
